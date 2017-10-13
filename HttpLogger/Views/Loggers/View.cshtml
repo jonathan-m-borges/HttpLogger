@@ -1,0 +1,15 @@
+﻿@model Logger
+
+<hr/>
+<div>
+    <a asp-action="Index">Back to List</a>
+</div>
+
+<hr />
+<h1>/log/@Model.Name</h1>
+
+@foreach (var req in Model.Requests)
+{
+    @req.DateTime
+    <hr/>
+}

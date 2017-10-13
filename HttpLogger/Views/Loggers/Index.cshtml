@@ -1,0 +1,20 @@
+﻿@model IEnumerable<Logger>
+@{
+    ViewBag.Title = "Manage Loggers";
+}
+
+<h1>Loggers</h1>
+
+<hr />
+@Html.Partial("_List")
+<hr />
+
+<h2>Create</h2>
+@Html.Partial("_Form", new Logger())
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        $('#Name').focus();
+    </script>
+}
