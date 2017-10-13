@@ -48,7 +48,12 @@ namespace HttpLogger.Controllers
             if (model == null)
                 return NotFound();
 
-            model.Requests = await _context.Requests.OrderByDescending(x => x.DateTime).ToListAsync();
+            model.Requests = await _context.Requests
+                .Where(x => x.Logger.Id == id)
+                .OrderByDescending(x => x.DateTime).ToListAsync();
+
+            foreach(var req in model.Requests)
+                req.Headers = await _context.Headers.Where(x => x.Request.Id == req.Id).ToListAsync();
 
             return View(model);
         }
@@ -61,6 +66,18 @@ namespace HttpLogger.Controllers
 
             _context.Loggers.Add(logger);
             await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Clear(int id)
+        {
+            var requests = await _context.Requests.Where(x => x.Logger.Id == id).ToListAsync();
+            foreach (var request in requests)
+                _context.Remove(request);
+
+            await _context.SaveChangesAsync();
+
             return RedirectToAction(nameof(Index));
         }
 

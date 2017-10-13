@@ -10,6 +10,34 @@
 
 @foreach (var req in Model.Requests)
 {
-    @req.DateTime
-    <hr/>
+    <hr/><hr/><hr/>
+    <table class="table">
+        <thead>
+            <tr valign="top">
+                <th><b>DateTime:</b></th>
+                <th>@req.DateTime</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr valign="top">
+                <td><b>Method:</b></td>
+                <td>@req.Method</td>
+            </tr>
+            <tr valign="top">
+                <td><b>Headers:</b></td>
+                <td>
+                    @foreach(var header in req.Headers)
+                    {
+                        <text>@header.Key:@header.Value</text><br />
+                    }
+                </td>
+            </tr>
+            <tr valign="top">
+                <td><b>Body:</b></td>
+                <td>
+                    <pre>@req.Body</pre>
+                </td>
+            </tr>
+        </tbody>
+    </table>
 }
