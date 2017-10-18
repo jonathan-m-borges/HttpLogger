@@ -12,11 +12,11 @@ namespace HttpLogger.Controllers
 {
     public class LoggersController : Controller
     {
-        private readonly LoggerContext _context;
+        private readonly ILoggerRepository repository;
 
-        public LoggersController(LoggerContext context)
+        public LoggersController(ILoggerRepository repository)
         {
-            _context = context;
+            this.repository = repository;
         }
 
         [Route("/log/{logger}")]
@@ -29,8 +29,7 @@ namespace HttpLogger.Controllers
             if (string.IsNullOrWhiteSpace(logger))
                 return RedirectToAction(nameof(Index));
 
-            var model = await _context.Loggers.SingleOrDefaultAsync(x =>
-                x.Name.Equals(logger, StringComparison.InvariantCultureIgnoreCase));
+            var model = await repository.GetByNameAsync(logger);
 
             return model == null
                 ? NotFound()
@@ -39,57 +38,46 @@ namespace HttpLogger.Controllers
 
         public async Task<IActionResult> Index()
         {
-            return View("Index", await _context.Loggers.ToListAsync());
+            return View("Index", await repository.GetAllAsync());
         }
 
-        public async Task<IActionResult> View(int id)
+        public new async Task<IActionResult> View(string id)
         {
-            var model = await _context.Loggers.SingleOrDefaultAsync(x => x.Id == id);
+            var model = await repository.GetByNameAsync(id);
             if (model == null)
                 return NotFound();
-
-            model.Requests = await _context.Requests
-                .Where(x => x.Logger.Id == id)
-                .OrderByDescending(x => x.DateTime).ToListAsync();
-
-            foreach(var req in model.Requests)
-                req.Headers = await _context.Headers.Where(x => x.Request.Id == req.Id).ToListAsync();
 
             return View(model);
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([Bind("Id,Name")]Logger logger)
+        public async Task<IActionResult> Create([Bind("Name")]Logger logger)
         {
             if (!ModelState.IsValid)
-                return View("Index", await _context.Loggers.ToListAsync());
+                return View("Index", await repository.GetAllAsync());
 
-            _context.Loggers.Add(logger);
-            await _context.SaveChangesAsync();
+            await repository.CreateAsync(logger);
+            
             return RedirectToAction(nameof(Index));
         }
 
         [HttpGet]
-        public async Task<IActionResult> Clear(int id)
+        public async Task<IActionResult> Clear(string id)
         {
-            var requests = await _context.Requests.Where(x => x.Logger.Id == id).ToListAsync();
-            foreach (var request in requests)
-                _context.Remove(request);
+            var logger = await repository.GetByNameAsync(id);
 
-            await _context.SaveChangesAsync();
-
-            return RedirectToAction(nameof(Index));
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> Delete(int id)
-        {
-            var logger = await _context.Loggers.SingleOrDefaultAsync(x => x.Id == id);
-            if (logger != null)
-            {
-                _context.Remove(logger);
-                await _context.SaveChangesAsync();
+            if (logger!=null){
+                logger.Requests.Clear();
+                await repository.UpdateAsync(logger);
             }
+            
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Delete(string id)
+        {
+            await repository.RemoveAsync(id);
 
             return RedirectToAction(nameof(Index));
         }
@@ -98,24 +86,16 @@ namespace HttpLogger.Controllers
         {
             var request = new Request
             {
-                Logger = logger,
                 DateTime = DateTime.Now,
                 Method = Request.Method,
                 Body = new StreamReader(Request.Body).ReadToEnd()
             };
 
-            await _context.Requests.AddAsync(request);
-
             var json = false;
             foreach (var requestHeader in Request.Headers)
             {
-                var header = new Header
-                {
-                    Request = request,
-                    Key = requestHeader.Key,
-                    Value = requestHeader.Value
-                };
-                await _context.Headers.AddAsync(header);
+                var header = new Header(requestHeader.Key, requestHeader.Value);
+                request.Headers.Add(header);
 
                 if (header.Key.Equals("content-type", StringComparison.InvariantCultureIgnoreCase))
                 {
@@ -136,7 +116,9 @@ namespace HttpLogger.Controllers
                 }
             }
 
-            await _context.SaveChangesAsync();
+            logger.Requests.Add(request);
+
+            await repository.UpdateAsync(logger);
 
             return Content("OK");
         }

@@ -20,10 +20,8 @@ namespace HttpLogger
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddMvc();
-
-            services.AddDbContext<LoggerContext>(options =>
-                options.UseInMemoryDatabase("LoggerDB"));
-
+            
+            services.AddSingleton(typeof(ILoggerRepository), typeof(LoggerRepository));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

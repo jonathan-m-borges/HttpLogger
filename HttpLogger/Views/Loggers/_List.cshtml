@@ -13,10 +13,10 @@
         @foreach (var item in Model)
         {
             <tr>
-                <td><a asp-action="View" asp-route-id="@item.Id">/log/@Html.DisplayFor(model => item.Name)</a></td>
+                <td><a asp-action="View" asp-route-id="@item.id">/log/@Html.DisplayFor(model => item.Name)</a></td>
                 <td>
-                    <a asp-action="Clear" asp-route-id="@item.Id">Clear</a> |
-                    <a asp-action="Delete" asp-route-id="@item.Id">Delete</a>
+                    <a asp-action="Clear" asp-route-id="@item.id">Clear</a> |
+                    <a asp-action="Delete" asp-route-id="@item.id">Delete</a>
                 </td>
             </tr>
         }
