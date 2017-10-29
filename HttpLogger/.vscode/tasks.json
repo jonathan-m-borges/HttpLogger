@@ -7,7 +7,7 @@
         {
             "taskName": "build",
             "args": [
-                "${workspaceRoot}/HttpLogger/HttpLogger.csproj"
+                "${workspaceRoot}/HttpLogger.csproj"
             ],
             "isBuildCommand": true,
             "problemMatcher": "$msCompile"

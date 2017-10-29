@@ -1,4 +1,5 @@
 ﻿using HttpLogger.Data;
+using HttpLogger.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,7 @@ namespace HttpLogger
             services.AddMvc();
             
             services.AddSingleton(typeof(ILoggerRepository), typeof(LoggerRepository));
+            services.AddSingleton(typeof(IHttpLoggerService), typeof(HttpLoggerService));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

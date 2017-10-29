@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using HttpLogger.Data;
 using HttpLogger.Models;
+using HttpLogger.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
@@ -13,9 +14,11 @@ namespace HttpLogger.Controllers
     public class LoggersController : Controller
     {
         private readonly ILoggerRepository repository;
+        private readonly IHttpLoggerService service;
 
-        public LoggersController(ILoggerRepository repository)
+        public LoggersController(ILoggerRepository repository, IHttpLoggerService service)
         {
+            this.service = service;
             this.repository = repository;
         }
 
@@ -28,12 +31,10 @@ namespace HttpLogger.Controllers
         {
             if (string.IsNullOrWhiteSpace(logger))
                 return RedirectToAction(nameof(Index));
+                
+            await SaveRequest(logger);
 
-            var model = await repository.GetByNameAsync(logger);
-
-            return model == null
-                ? NotFound()
-                : await SaveRequest(model);
+            return Content("OK");
         }
 
         public async Task<IActionResult> Index()
@@ -57,7 +58,7 @@ namespace HttpLogger.Controllers
                 return View("Index", await repository.GetAllAsync());
 
             await repository.CreateAsync(logger);
-            
+
             return RedirectToAction(nameof(Index));
         }
 
@@ -66,11 +67,12 @@ namespace HttpLogger.Controllers
         {
             var logger = await repository.GetByNameAsync(id);
 
-            if (logger!=null){
+            if (logger != null)
+            {
                 logger.Requests.Clear();
                 await repository.UpdateAsync(logger);
             }
-            
+
             return RedirectToAction(nameof(Index));
         }
 
@@ -82,45 +84,15 @@ namespace HttpLogger.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        private async Task<IActionResult> SaveRequest(Logger logger)
+        private async Task SaveRequest(string logger)
         {
             var request = new Request
             {
                 DateTime = DateTime.Now,
                 Method = Request.Method,
-                Body = new StreamReader(Request.Body).ReadToEnd()
             };
-
-            var json = false;
-            foreach (var requestHeader in Request.Headers)
-            {
-                var header = new Header(requestHeader.Key, requestHeader.Value);
-                request.Headers.Add(header);
-
-                if (header.Key.Equals("content-type", StringComparison.InvariantCultureIgnoreCase))
-                {
-                    if (header.Value.Equals("application/json", StringComparison.InvariantCultureIgnoreCase))
-                        json = true;
-                }
-            }
-
-            if (json)
-            {
-                try
-                {
-                    var obj = JsonConvert.DeserializeObject(request.Body);
-                    request.Body = JsonConvert.SerializeObject(obj, Formatting.Indented);
-                }
-                catch (Exception)
-                {
-                }
-            }
-
-            logger.Requests.Add(request);
-
-            await repository.UpdateAsync(logger);
-
-            return Content("OK");
+            
+            await service.LogRequestAsync(logger, request, Request.Body );
         }
 
     }
