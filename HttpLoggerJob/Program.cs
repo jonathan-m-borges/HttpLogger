@@ -2,6 +2,8 @@
 using System.IO;
 using System.Threading.Tasks;
 using HttpLoggerModel;
+using Microsoft.Azure.Documents;
+using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Configuration;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Queue;
@@ -11,19 +13,55 @@ namespace HttpLoggerJob
 {
     class Program
     {
-        private static IConfigurationRoot configuration;
-        private static CloudQueue queue;
+        private IConfigurationRoot configuration;
+        private CloudQueue queue;
+        private DocumentClient documentDbClient;
+        private Uri collectionUri;
 
         static void Main(string[] args)
         {
-            BuildConfiguration();
-            
-            StorageAccountInit();
-
-            Run().Wait();
+            try
+            {
+                var program = new Program();
+                program.Run().Wait();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message, e);
+            }
         }
 
-        private static void BuildConfiguration()
+        public async Task Run()
+        {
+            BuildConfiguration();
+            
+            await StorageAccountInit();
+
+            await DocumentDbInit();
+
+            await ListenMessages();
+        }
+
+        private async Task ListenMessages()
+        {
+            while (true)
+            {
+                var message = await queue.GetMessageAsync();
+                if (message == null)
+                {
+                    await Task.Delay(5000);
+                    Console.WriteLine("Queue empty...");
+                    continue;
+                }
+
+                await ProcessMessage(message);
+
+                Console.WriteLine("Message recebida...");
+                Console.WriteLine(message.AsString);
+            }
+        }
+
+        private void BuildConfiguration()
         {
             var builder = new ConfigurationBuilder()
                             .SetBasePath(Directory.GetCurrentDirectory())
@@ -32,49 +70,43 @@ namespace HttpLoggerJob
             configuration = builder.Build();
         }
 
-        private static void StorageAccountInit()
+        private async Task StorageAccountInit()
         {
             var storageAccount = Microsoft.WindowsAzure.Storage.CloudStorageAccount.Parse(configuration["storage:connectionString"]);
             var queueClient = storageAccount.CreateCloudQueueClient();
             queue = queueClient.GetQueueReference(configuration["storage:queueReference"]);
-            queue.CreateIfNotExistsAsync();
+            await queue.CreateIfNotExistsAsync();
         }
 
-        private static async Task Run()
+        private async Task DocumentDbInit()
         {
-            while (true)
-            {
-                var message = await queue.GetMessageAsync();
-                //JsonConvert.DeserializeObject(message.AsString);
-                if (message == null)
-                {
-                    await Task.Delay(5000);
-                    Console.WriteLine("Queue empty...");
-                    continue;
-                }
-
-                ProcessMessage(message);
-
-                Console.WriteLine("Message recebida...");
-                Console.WriteLine(message.AsString);
-            }
+            documentDbClient = new DocumentClient(new Uri(configuration["documentdb:serviceEndpoint"]), configuration["documentdb:authKey"]);
+            await documentDbClient.CreateDatabaseIfNotExistsAsync(new Database{Id=configuration["documentdb:databaseId"]});
+            await documentDbClient.CreateDocumentCollectionIfNotExistsAsync(UriFactory.CreateDatabaseUri(configuration["documentdb:databaseId"]), new DocumentCollection {Id=configuration["documentdb:collectionId"]});
+            collectionUri = UriFactory.CreateDocumentCollectionUri(configuration["documentdb:databaseId"], configuration["documentdb:collectionId"]);
         }
 
-        private static void ProcessMessage(CloudQueueMessage message)
+        private async Task ProcessMessage(CloudQueueMessage message)
         {
             Console.WriteLine("Message recebida...");
             Console.WriteLine(message.AsString);
 
             try {
                 var request = JsonConvert.DeserializeObject<Request>(message.AsString);
+                
+                await SaveRequest(request);
+                
+                await queue.DeleteMessageAsync(message);
             }
             catch (Exception e)
             {
-
+                Console.WriteLine($"Erro ao processar request {message.Id}: {e.Message}", e);
             }
-            
+        }
 
-
+        private async Task SaveRequest (Request request)
+        {
+            await documentDbClient.CreateDocumentAsync(collectionUri, request);
         }
     }
 }

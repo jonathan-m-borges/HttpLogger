@@ -22,8 +22,9 @@ then
     echo "publishing HttpLogger to ~/dev/deploy-azure/..."
     dotnet publish HttpLogger/HttpLogger.csproj -o ~/dev/deploy-azure/
     
+    mkdir -p ~/dev/deploy-azure/App_Data/jobs/continuous/proc-requests/
     echo "publishing HttpLoggerJob..."
-    dotnet publish HttpLoggerJob/HttpLoggerJob.csproj -o ~/dev/deploy-azure/App_Data/jobs/triggered/web-job-01/
+    dotnet publish HttpLoggerJob/HttpLoggerJob.csproj -o ~/dev/deploy-azure/App_Data/jobs/continuous/proc-requests/
     
     exit 1
 fi

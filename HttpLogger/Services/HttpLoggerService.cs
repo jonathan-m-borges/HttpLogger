@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using HttpLogger.Models;
 using Microsoft.Azure;
@@ -42,17 +43,19 @@ namespace HttpLogger.Services
             await SaveBlob(message.Id, content);
         }
 
-        private RequestQueueMessage CreateRequestMessage(string logger, Request request)
+        private HttpLoggerModel.Request CreateRequestMessage(string logger, Request request)
         {
-            return new RequestQueueMessage
+            return new HttpLoggerModel.Request
             {
                 Logger = logger,
                 Id = Guid.NewGuid(),
-                Request = request
+                DateTime = request.DateTime,
+                Method = request.Method,
+                Headers = request.Headers.Select(x => new HttpLoggerModel.Header(x.Key, x.Value)).ToList()
             };
         }
 
-        private async Task SendMessage(RequestQueueMessage dto)
+        private async Task SendMessage(HttpLoggerModel.Request dto)
         {
             var serialized = JsonConvert.SerializeObject(dto);
             var message = new CloudQueueMessage(serialized);
