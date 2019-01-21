@@ -2,3 +2,7 @@ desenvolvido feature-01
 	alteração 1
 	alteração 2
 	alteração 3
+
+feature 02
+
+feature 03
